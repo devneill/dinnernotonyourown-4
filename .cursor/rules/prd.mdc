@@ -9,7 +9,7 @@ alwaysApply: true
 A practical tool for conference attendees to coordinate dinner plans in Salt Lake City, demonstrating the power of rapid development using modern tools.
 
 ## Roadmap
-[] Phase 1
+[x] Phase 1
 [] Phase 2
 [] Phase 3
 [] Phase 4
@@ -96,14 +96,15 @@ Notes:
 
 ### Required APIs 
 - Google Places API to find restaurants near the users current location 
-  - set up caching to avoid API rate limits
-  - use resource routes as a proxy to keep the api key secure
+  <!-- - set up caching to avoid API rate limits -->
+  -  -->use resource routes as a proxy to keep the api key secure
 - Users will sign up via email which is provided by the Resend API
 
 ### UI
 - have a dashboard route
 - show a list view or a map view
 - the list view and map view should respond to filter toggles
+- the use should be able to navigate to the dashboard via the dropdown menu in the nav
 
 ### Deployment
 - Custom domain is dinnernotonyourown.com, provided by Cloudflare
@@ -141,7 +142,7 @@ Notes:
 ### Established rules and patterns
 #### General
 - Use react router 7 - do not use Remix imports
-  - returning json({}) from server functions is also deprecated, you can return the object directly
+  - returning json({}) from server functions is also deprecated, just return the object directly
   - use resource routes for endpoints
 
 #### File structure
