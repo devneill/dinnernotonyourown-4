@@ -25,9 +25,11 @@ Notes:
   2.1. Update Any references to Epic Notes to our app name
   2.2. Update any email templates to use our domain (make sure we no longer send any emails from the epicstack.dev domain, but rather send from our new domain)
 3. Add required API Keys (look at the [Required APIs](mdc:#required-apis) to see what is needed)
-  3.1. Add required env var placeholders to .env and ask me to update them with real values
+  3.1. Add required placeholders to .env.example (because it is used for tests)
+  3.2. Add required placeholders to .env and ask me to update them with real values
   3.2. Once I've added the real keys to .env, deploy them to Fly with `fly secrets set`
-4. Connect to our custom domain via Cloudflare
+4. Push the changes above to Github
+5. Connect to our custom domain via Cloudflare
 
 ### Phase 2 - Data Fetching & Storage
 - Add required models to Prisma schema
