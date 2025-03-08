@@ -10,7 +10,7 @@ A practical tool for conference attendees to coordinate dinner plans in Salt Lak
 
 ## Roadmap
 [x] Phase 1
-[] Phase 2
+[x] Phase 2
 [] Phase 3
 [] Phase 4
 [] Phase 5
@@ -35,10 +35,10 @@ Notes:
 - Add required models to Prisma schema (look at [Database Schema](mdc:#database-schema))
 - Create reusable Prisma queries
 - Implement API integrations (look at the [Required APIs](mdc:#required-apis))
-- Add required Resource routes (look at [Core Features](mdc:#core-features))
+- Add required Resource routes (look at [Core Features](mdc:#core-features)) (make sure to follow [Established rules and patterns](mdc:#established-rules-and-patterns))
 
 ### Phase 3 - UI Development
-- Ensure UI has all core features
+- Ensure UI has all [Core Features](mdc:#core-features) (make sure to follow [Established rules and patterns](mdc:#established-rules-and-patterns))
 
 ### Phase 4 - Polish
 - Ensure mobile responsiveness
@@ -60,21 +60,20 @@ Notes:
   - Direct link to restaurant website/menu if available
   - Google Maps link for easy navigation
 - Simple filtering options:
-  - Distance (0.5mi, 1mi, 2mi)
-  - Rating (above 1, 2, 3, 4 or 5 stars)
-  - Price range ($ to $$$)
-  - Cuisine type (quick filters for popular options)
+  - Distance (1mi, 2mi, 5mi, 10mi)
+  - Rating (above 1, 2, 3, or 4 stars)
+  - Price range (all, $, $$, $$$ or $$$$)
 - Two main views:
   - Map view:
     - Interactive map with restaurant pins - the pins should show the attendee count on them
     - The restaurant you are attending should be green
-    - Your current location (or venue location as fallback)
+    - Your live location (or venue location as fallback)
     - The live location marker on the map should a koala emoji
   - List view: 
     - Filterable list with restaurant cards
 - Persistent header with:
-  - Countdown timer 'until you have dinner on your own'
-  - Quick filter toggle buttons
+  - Countdown timer 'XX:XX left until you have dinner on your own'
+  - Quick filter toggle buttons to filter list and map results
 
 ### 2. Attendee Coordination
 - "Join dinner" button for each restaurant
@@ -95,22 +94,62 @@ Notes:
   - id, userId, dinnerGroupId, createdAt
 
 ### Required APIs 
-- Google Places API to find restaurants near the users current location 
-  <!-- - set up caching to avoid API rate limits -->
-  -  -->use resource routes as a proxy to keep the api key secure
-- Users will sign up via email which is provided by the Resend API
+- Google Places API
+  - to find restaurants near the users current location 
+  - use tiered caching with 24-hour TTL and database persistence
+- Resend API so users can sign up via email 
 
 ### UI
 - have a dashboard route
-- show a list view or a map view
-- the list view and map view should respond to filter toggles
-- the use should be able to navigate to the dashboard via the dropdown menu in the nav
+- the use should be able to navigate to the dashboard via the dropdown menu in the navbar
+
+### Types
+- Use official google maps types instead of writing our own
+- Put external type declarations in ./types/deps.d.ts
 
 ### Deployment
 - Custom domain is dinnernotonyourown.com, provided by Cloudflare
 
 
 ## Technical Information
+
+### Established rules and patterns
+
+#### File structure
+- Use '#app/..' imports instead of relative imports
+- Reusable db queries: utils/
+- External API services: utils/providers/[service-name].server.ts
+- Resource routes: routes/resources+/[resource-name].tsx
+- User Resource routes for:
+  - shared internal functionality
+  - public APIs
+  - operations involving multiple sources or complex logic that should be encapsulated
+- functionality related to a specific route should live directly in that route's loader and action
+
+### Data fetching
+- APIs should be wrapped in resource routes with tiered caching to optimize quota usage
+- Implement tiered caching (memory → database) with appropriate TTLs
+- UI components call resource routes via React Router's useFetcher
+- Pass filters from UI as URL parameters to resource routes
+
+#### User Interface
+- Clean, responsive design using shadcn/ui components
+- Mobile-first approach
+- Implement new feature route/s in users/$user/
+- Centralize shared components 
+  - add organism components to /componenets
+  - add atoms and molecules to /components/ui
+- Loading states and optimistic UI should use suspense and promise responses from the server functions
+- Use shadcn components where possible. Only import new radix primitives when needed. Avoid importing radix components directly - they should only be used as part of components in components/ui and used in the app from there.
+- Use Zod for schema validation together with Conform for handling all Forms
+
+#### General
+- Use React Router 7 - DO NOT use Remix imports
+  - returning json({}) from server functions is deprecated, just return the object directly
+- Use React Routers server side loaders and actions for state management - DO NOT use client side state or fetching
+
+#### Other
+-  Add any new/custom patterns here
 
 ### Tech Stack
 - **Foundation:** Kent C. Dodds' Epic Stack
@@ -123,7 +162,6 @@ Notes:
   - remix-flat-routes file based routing
 - **Backend:** 
   - React Router 7
-  - Server loaders, actions and resource routes
 - **Database:** 
   - SQLite
   - Prisma ORM with TypedSQL support
@@ -138,27 +176,3 @@ Notes:
 - **Other**
   - Resend for emails
   - Sentry for bug monitoring
-
-### Established rules and patterns
-#### General
-- Use react router 7 - do not use Remix imports
-  - returning json({}) from server functions is also deprecated, just return the object directly
-  - use resource routes for endpoints
-
-#### File structure
-- Use '#app/..' imports instead of relative imports
-- reusable db queries live in utils/
-- place external APIs in utils/providers
-
-#### User Interface
-- Clean, responsive design using shadcn/ui components
-- Mobile-first approach
-- Implement new feature route/s in users/$user/
-- Centralize shared components 
-  - add organism components to /componenets
-  - add atoms and molecules to /components/ui
-- Loading states and optimistic UI should use suspense and promise responses from the server functions
-- Use shadcn components where possible. Only import new radix primitives when needed. Avoid importing radix components directly - they should only be used as part of components in components/ui and used in the app from there
-
-#### Other
--  Add any new/custom patterns here

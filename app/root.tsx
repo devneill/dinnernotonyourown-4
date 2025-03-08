@@ -164,6 +164,11 @@ function Document({
 			<body className="bg-background text-foreground">
 				{children}
 				<script
+					async
+					src={`https://maps.googleapis.com/maps/api/js?key=${env.GOOGLE_PLACES_API_KEY || ''}&libraries=places`}
+					nonce={nonce}
+				></script>
+				<script
 					nonce={nonce}
 					dangerouslySetInnerHTML={{
 						__html: `window.ENV = ${JSON.stringify(env)}`,

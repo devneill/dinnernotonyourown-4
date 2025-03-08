@@ -1,56 +1,32 @@
+import { type Restaurant } from '@prisma/client'
 import { z } from 'zod'
-import { cache } from '../cache.server.ts'
+import { prisma } from '#app/utils/db.server.ts'
 
-// Define the response schema for Google Places API
-const googlePlacesRestaurantSchema = z.object({
-  place_id: z.string(),
-  name: z.string(),
-  vicinity: z.string(), // address
-  types: z.array(z.string()),
-  price_level: z.number().optional(),
-  rating: z.number().optional(),
-  geometry: z.object({
-    location: z.object({
-      lat: z.number(),
-      lng: z.number(),
-    }),
-  }),
-  photos: z
-    .array(
-      z.object({
-        photo_reference: z.string(),
-        height: z.number(),
-        width: z.number(),
-      }),
-    )
-    .optional(),
-  website: z.string().optional(),
-  url: z.string().optional(), // Google Maps URL
-})
-
-const googlePlacesResponseSchema = z.object({
-  results: z.array(googlePlacesRestaurantSchema),
-  status: z.string(),
-  next_page_token: z.string().optional(),
-})
-
-type GooglePlacesRestaurant = z.infer<typeof googlePlacesRestaurantSchema>
+// Default Salt Lake City venue coordinates
+export const DEFAULT_VENUE_LOCATION = {
+  lat: 40.7608, // Salt Palace Convention Center
+  lng: -111.8910,
+}
 
 // Function to get photo URL from photo reference
 export function getPhotoUrl(photoReference: string, maxWidth = 400) {
-  return `https://maps.googleapis.com/maps/api/place/photo?maxwidth=${maxWidth}&photoreference=${photoReference}&key=${process.env.GOOGLE_PLACES_API_KEY}`
+  if (!photoReference) {
+    return 'https://placehold.co/400x300?text=Restaurant';
+  }
+  const apiKey = 'AIzaSyChrcKc85KZGdGxmGQ0hU--XaNNE8NmH3g';
+  return `https://maps.googleapis.com/maps/api/place/photo?maxwidth=${maxWidth}&photoreference=${photoReference}&key=${apiKey}`;
 }
 
-// Function to search for restaurants near a location
+// Simple function to search for restaurants near a location
 export async function searchRestaurants({
   lat,
   lng,
-  radius = 1500, // Default 1.5km radius
+  radius = 2000, // 2km radius
   type = 'restaurant',
   keyword = '',
   minPrice,
   maxPrice,
-  openNow = true,
+  minRating,
 }: {
   lat: number
   lng: number
@@ -59,137 +35,79 @@ export async function searchRestaurants({
   keyword?: string
   minPrice?: number
   maxPrice?: number
-  openNow?: boolean
+  minRating?: number
 }) {
-  // Create a cache key based on the search parameters
-  const cacheKey = `places-search:${lat}-${lng}-${radius}-${type}-${keyword}-${minPrice}-${maxPrice}-${openNow}`
-
-  // Try to get from cache first
-  const cachedResults = await cache.get(cacheKey)
-  if (cachedResults) {
-    return cachedResults.value as GooglePlacesRestaurant[]
-  }
-
-  // Build the URL with query parameters
-  const url = new URL('https://maps.googleapis.com/maps/api/place/nearbysearch/json')
-  url.searchParams.append('location', `${lat},${lng}`)
-  url.searchParams.append('radius', radius.toString())
-  url.searchParams.append('type', type)
-  if (keyword) url.searchParams.append('keyword', keyword)
-  if (minPrice !== undefined) url.searchParams.append('minprice', minPrice.toString())
-  if (maxPrice !== undefined) url.searchParams.append('maxprice', maxPrice.toString())
-  if (openNow) url.searchParams.append('opennow', 'true')
-  url.searchParams.append('key', process.env.GOOGLE_PLACES_API_KEY)
-
+  // API key is required - use the one provided by the user
+  const apiKey = 'AIzaSyChrcKc85KZGdGxmGQ0hU--XaNNE8NmH3g';
+  
   try {
-    const response = await fetch(url.toString())
-    if (!response.ok) {
-      throw new Error(`Google Places API error: ${response.statusText}`)
-    }
-
-    const data = await response.json()
-    const parsedData = googlePlacesResponseSchema.parse(data)
-
-    // Cache the results for 1 hour
-    await cache.set(cacheKey, {
-      metadata: { createdTime: Date.now() },
-      value: parsedData.results,
-    })
-
-    return parsedData.results
-  } catch (error) {
-    console.error('Error fetching restaurants from Google Places API:', error)
-    throw error
-  }
-}
-
-// Function to get details for a specific place
-export async function getPlaceDetails(placeId: string) {
-  // Create a cache key based on the place ID
-  const cacheKey = `place-details:${placeId}`
-
-  // Try to get from cache first
-  const cachedDetails = await cache.get(cacheKey)
-  if (cachedDetails) {
-    return cachedDetails.value
-  }
-
-  // Build the URL with query parameters
-  const url = new URL('https://maps.googleapis.com/maps/api/place/details/json')
-  url.searchParams.append('place_id', placeId)
-  url.searchParams.append('fields', 'name,vicinity,type,price_level,rating,geometry,photos,website,url')
-  url.searchParams.append('key', process.env.GOOGLE_PLACES_API_KEY)
-
-  try {
-    const response = await fetch(url.toString())
-    if (!response.ok) {
-      throw new Error(`Google Places API error: ${response.statusText}`)
-    }
-
-    const data = await response.json() as { result: unknown }
+    // Build the URL for Google Places API - be careful not to duplicate parameters
+    const url = new URL('https://maps.googleapis.com/maps/api/place/nearbysearch/json');
     
-    // Cache the results for 1 day
-    await cache.set(cacheKey, {
-      metadata: { createdTime: Date.now() },
-      value: data.result,
-    })
-
-    return data.result
+    // Add parameters one by one
+    url.searchParams.append('location', `${lat},${lng}`);
+    url.searchParams.append('radius', radius.toString());
+    url.searchParams.append('type', type);
+    url.searchParams.append('key', apiKey);
+    
+    if (keyword) url.searchParams.append('keyword', keyword);
+    if (minPrice !== undefined) url.searchParams.append('minprice', minPrice.toString());
+    if (maxPrice !== undefined) url.searchParams.append('maxprice', maxPrice.toString());
+    
+    const urlString = url.toString();
+    console.log('Fetching from Google Places API:', urlString.replace(apiKey, '***'));
+    
+    // Make the API request
+    const response = await fetch(urlString);
+    
+    if (!response.ok) {
+      throw new Error(`Google Places API error: ${response.statusText}`);
+    }
+    
+    const data = await response.json();
+    console.log('Google Places API response status:', data.status);
+    
+    // Check the status from the API response
+    if (data.status !== 'OK' && data.status !== 'ZERO_RESULTS') {
+      throw new Error(`Google Places API returned status: ${data.status}`);
+    }
+    
+    // Log the actual results for debugging
+    console.log(`Found ${data.results?.length || 0} raw results from Google API`);
+    
+    // Filter by rating if specified (API doesn't support this natively)
+    let results = data.results || [];
+    if (minRating !== undefined) {
+      results = results.filter(place => (place.rating || 0) >= minRating);
+    }
+    
+    console.log(`Returning ${results.length} filtered results`);
+    return results;
   } catch (error) {
-    console.error('Error fetching place details from Google Places API:', error)
-    throw error
+    console.error('Error searching for restaurants:', error);
+    // Return a fallback of empty results
+    return [];
   }
 }
 
-// Function to calculate walking distance and time between two points
-export async function getWalkingDistance(
+// Calculate walking distance between two points
+export function calculateDistance(
   originLat: number,
   originLng: number,
   destLat: number,
   destLng: number,
 ) {
-  // Create a cache key based on the coordinates
-  const cacheKey = `walking-distance:${originLat}-${originLng}-${destLat}-${destLng}`
+  const R = 6371e3; // Earth's radius in meters
+  const φ1 = (originLat * Math.PI) / 180;
+  const φ2 = (destLat * Math.PI) / 180;
+  const Δφ = ((destLat - originLat) * Math.PI) / 180;
+  const Δλ = ((destLng - originLng) * Math.PI) / 180;
 
-  // Try to get from cache first
-  const cachedDistance = await cache.get(cacheKey)
-  if (cachedDistance) {
-    return cachedDistance.value
-  }
+  const a =
+    Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
+    Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 
-  // Build the URL with query parameters
-  const url = new URL('https://maps.googleapis.com/maps/api/distancematrix/json')
-  url.searchParams.append('origins', `${originLat},${originLng}`)
-  url.searchParams.append('destinations', `${destLat},${destLng}`)
-  url.searchParams.append('mode', 'walking')
-  url.searchParams.append('key', process.env.GOOGLE_PLACES_API_KEY)
-
-  try {
-    const response = await fetch(url.toString())
-    if (!response.ok) {
-      throw new Error(`Google Distance Matrix API error: ${response.statusText}`)
-    }
-
-    const data = await response.json() as { rows: Array<{ elements: Array<{ distance: unknown; duration: unknown }> }> }
-    
-    if (!data.rows?.[0]?.elements?.[0]) {
-      throw new Error('Invalid response from Google Distance Matrix API')
-    }
-    
-    const result = {
-      distance: data.rows[0].elements[0].distance,
-      duration: data.rows[0].elements[0].duration,
-    }
-
-    // Cache the results for 1 day
-    await cache.set(cacheKey, {
-      metadata: { createdTime: Date.now() },
-      value: result,
-    })
-
-    return result
-  } catch (error) {
-    console.error('Error fetching walking distance from Google Distance Matrix API:', error)
-    throw error
-  }
+  const distance = R * c; // in meters
+  return distance / 1609.34; // convert to miles
 } 

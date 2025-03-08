@@ -70,8 +70,6 @@ export async function loader({ request }: { request: Request }) {
 }
 
 export async function action({ request }: { request: Request }) {
-  const userId = await requireUserId(request)
-  
   try {
     const formData = await request.formData()
     const action = formData.get('action')

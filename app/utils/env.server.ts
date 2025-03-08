@@ -63,6 +63,7 @@ export function getEnv() {
 		MODE: process.env.NODE_ENV,
 		SENTRY_DSN: process.env.SENTRY_DSN,
 		ALLOW_INDEXING: process.env.ALLOW_INDEXING,
+		GOOGLE_PLACES_API_KEY: process.env.GOOGLE_PLACES_API_KEY,
 	}
 }
 
